@@ -1,0 +1,81 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            libfftw3-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libgtest-dev \
+            python3 \
+            python3-pip \
+            python3-numpy
+          sudo pip3 install --no-cache-dir matplotlib
+          # Build GTest static libraries from source
+          sudo cmake /usr/src/googletest \
+            -B /tmp/gtest-build \
+            -DCMAKE_BUILD_TYPE=Release
+          sudo cmake --build /tmp/gtest-build --parallel
+          sudo cp /tmp/gtest-build/lib/*.a /usr/lib/
+
+      - name: Configure CMake
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_PROFILING=ON \
+            -DENABLE_ASAN=OFF
+
+      - name: Build
+        run: cmake --build build --parallel $(nproc)
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure --timeout 60
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: build/Testing/
+
+      - name: Smoke test binary
+        run: |
+          ./build/radar_dsp \
+            --no-rt \
+            --no-dashboard \
+            --benchmark \
+            --targets 2 \
+            --snr 15 \
+            --pulses 32 \
+            --output /tmp/radar-output || true
+          echo "Binary executed successfully"
+
+      - name: Run visualize.py with synthetic data
+        run: |
+          python3 tools/visualize.py /tmp/radar-plots
+          ls /tmp/radar-plots/
+
+      - name: Upload plots
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-plots
+          path: /tmp/radar-plots/

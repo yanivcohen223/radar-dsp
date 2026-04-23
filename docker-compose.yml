@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  radar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: radar-dsp
+    stdin_open: true
+    tty: true
+    privileged: true
+    ulimits:
+      rtprio: 99
+    volumes:
+      - ./output:/radar-dsp/output
+    environment:
+      - TERM=xterm-256color
+    command: ["./build/radar_dsp", "--targets", "3", "--snr", "15", "--pulses", "64"]
+
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: radar-dsp
+    privileged: true
+    ulimits:
+      rtprio: 99
+    volumes:
+      - ./output:/radar-dsp/output
+    command: ["./scripts/benchmark.sh"]
+    profiles:
+      - benchmark
