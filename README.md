@@ -1,10 +1,5 @@
 # Radar DSP — Software-Defined Radar Signal Processor
 
-(https://github.com/YOUR_GITHUB/radar-dsp/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB/radar-dsp/actions)
-![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
-![Docker](https://img.shields.io/badge/docker-ubuntu%3A22.04-informational.svg)
-![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
-
 A production-quality, real-time radar signal processing pipeline implemented in C++17.
 Built to run inside Docker on Linux, exploiting POSIX real-time scheduling (`SCHED_FIFO`),
 CPU affinity, and lock-free inter-thread communication.
