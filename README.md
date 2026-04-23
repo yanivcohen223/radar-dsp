@@ -60,33 +60,33 @@ ADC samples to tracked targets — in software.  The non-trivial parts:
 
 ```
                      ┌─────────────────────────────────────────────┐
-                     │             SCHED_FIFO RT Thread              │
-                     │                                               │
+                     │             SCHED_FIFO RT Thread            │
+                     │                                             │
   Simulated Targets  │  ┌──────────┐   ┌───────────┐               │
   + AWGN Noise   ───►│  │   ADC    │──►│  Pulse    │               │
                      │  │Simulator │   │Compressor │               │
                      │  └──────────┘   │ (FFTW3)   │               │
                      │                 └─────┬─────┘               │
-                     │                       │ Compressed pulses    │
+                     │                       │ Compressed pulses   │
                      │  ┌────────────────────▼──────────────────┐  │
-                     │  │        Range-Doppler Processor         │  │
-                     │  │   (2D FFT: fast-time × slow-time)      │  │
+                     │  │        Range-Doppler Processor        │  │
+                     │  │   (2D FFT: fast-time × slow-time)     │  │
                      │  └────────────────────┬──────────────────┘  │
-                     │                       │ RD map [dB]          │
+                     │                       │ RD map [dB]         │
                      │  ┌────────────────────▼──────────────────┐  │
-                     │  │         CFAR Detector                  │  │
-                     │  │  (CA-CFAR or OS-CFAR, 2D sliding win)  │  │
+                     │  │         CFAR Detector                 │  │
+                     │  │  (CA-CFAR or OS-CFAR, 2D sliding win) │  │
                      │  └────────────────────┬──────────────────┘  │
-                     │                       │ Detections           │
+                     │                       │ Detections          │
                      │  ┌────────────────────▼──────────────────┐  │
-                     │  │          Track Manager                 │  │
-                     │  │  (nearest-neighbour, α-β filter)       │  │
+                     │  │          Track Manager                │  │
+                     │  │  (nearest-neighbour, α-β filter)      │  │
                      │  └────────────────────┬──────────────────┘  │
                      └───────────────────────┼─────────────────────┘
                                              │ Lock-free SPSC queue
                      ┌───────────────────────▼─────────────────────┐
-                     │         Dashboard Thread (5 Hz)              │
-                     │  ncurses heatmap | detection table | tracks  │
+                     │         Dashboard Thread (5 Hz)             │
+                     │  ncurses heatmap | detection table | tracks │
                      └─────────────────────────────────────────────┘
                                              │
                                     CSV + PNG output
@@ -237,7 +237,7 @@ and post-processed to compute min/mean/p99/max.
 Measured inside Docker on a 4-core Linux VM (2.4 GHz):
 
 | Metric                        | Value        |
-|-------------------------------|-------------|
+|-------------------------------|--------------|
 | PSL (Hann window)             | −13.3 dB     |
 | ISL                           | −9.8 dB      |
 | Pipeline latency p99          | 3.2 ms       |
