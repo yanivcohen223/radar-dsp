@@ -1,6 +1,6 @@
 # Radar DSP — Software-Defined Radar Signal Processor
 
-[![CI](https://github.com/YOUR_GITHUB/radar-dsp/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB/radar-dsp/actions)
+(https://github.com/YOUR_GITHUB/radar-dsp/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB/radar-dsp/actions)
 ![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
 ![Docker](https://img.shields.io/badge/docker-ubuntu%3A22.04-informational.svg)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
