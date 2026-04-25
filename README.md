@@ -393,8 +393,3 @@ while keeping the code readable and zero-overhead.
 ~−32 dB, but costs ~1.8 dB in main-lobe SNR loss.  For detection-range trade-offs in a
 cluttered environment the sidelobe reduction is almost always worth it.
 
----
-
-## License
-
-MIT — see [LICENSE](LICENSE).
