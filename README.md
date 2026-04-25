@@ -23,21 +23,21 @@ Built as a portfolio project targeting **aerospace/defense embedded** roles.
 │  ....::::::;;;+++**####@@@@@@####**+++;;;::::::....                 │
 │  ...::::;;;+++**####@@@@@@@@@####**+++;;:::::.....                  │
 │  ......::::::;;;+++***###@@@###***+++;;;::::::......                │
-│                                                                      │
+│                                                                     │
 │ DETECTIONS (3)              TRACKS (3)                              │
-│ Range(m) Vel(m/s) SNR(dB)  ID   Range    Vel      Age  Stat        │
-│ 5012.4   49.8     18.3     1    5011.2   49.9     44   Conf        │
-│ 12003.1  -30.1    14.7     2    12002.7  -30.0    44   Conf        │
-│ 3001.5   119.9    20.1     3    3002.1   119.8    44   Conf        │
-│                                                                      │
+│ Range(m) Vel(m/s) SNR(dB)  ID   Range    Vel      Age  Stat         │
+│ 5012.4   49.8     18.3     1    5011.2   49.9     44   Conf         │
+│ 12003.1  -30.1    14.7     2    12002.7  -30.0    44   Conf         │
+│ 3001.5   119.9    20.1     3    3002.1   119.8    44   Conf         │
+│                                                                     │
 │ PIPELINE LATENCY                                                    │
-│ 1_adc               ████████████████  p99=  312µs                  │
-│ 2_pulse_compress    ████████████████████████  p99=  891µs          │
-│ 3_range_doppler     ████████  p99=  287µs                          │
-│ 4_cfar              ████  p99=  143µs                              │
-│ 5_tracker           ██  p99=   41µs                                │
-│                                                                      │
-│ CPI: 5.0 Hz | Tracks: 3 | Uptime: 30s | Press q to quit           │
+│ 1_adc               ████████████████  p99=  312µs                   │
+│ 2_pulse_compress    ████████████████████████  p99=  891µs           │
+│ 3_range_doppler     ████████  p99=  287µs                           │
+│ 4_cfar              ████  p99=  143µs                               │
+│ 5_tracker           ██  p99=   41µs                                 │
+│                                                                     │
+│ CPI: 5.0 Hz | Tracks: 3 | Uptime: 30s | Press q to quit             │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
