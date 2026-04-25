@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/yanivcohen223/radar-dsp/actions/workflows/ci.yml/badge.svg)](https://github.com/yanivcohen223/radar-dsp/actions)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform: Linux](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)](https://kernel.org)
 
 A **production-grade** radar DSP pipeline written from scratch in C++17, running on a
