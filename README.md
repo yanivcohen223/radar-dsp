@@ -64,25 +64,25 @@ Built as a portfolio project targeting **aerospace/defense embedded** roles.
 
 ```
  ┌─────────────────────── RT Thread (SCHED_FIFO) ───────────────────────┐
- │                                                                        │
+ │                                                                      │
  │  AdcSimulator  ──▶  PulseCompressor  ──▶  RangeDopplerProcessor      │
- │  generate_cpi()     compress()×Np         process()                   │
+ │  generate_cpi()     compress()×Np         process()                  │
  │  [I/Q + AWGN]       [FFTW3 MF]           [2D FFT + dB + fftshift]    │
- │                                                   │                    │
- │                                          CfarDetector<CA>             │
- │                                          detect()                      │
- │                                               │                        │
- │                                        TrackManager                   │
- │                                        update() · get_tracks()         │
- │                                               │                        │
- │                              LockFreeQueue<PipelineOutput, 8>         │
- └───────────────────────────────────────────────┼────────────────────────┘
+ │                                               │                      │
+ │                                          CfarDetector<CA>            │
+ │                                          detect()                    │
+ │                                               │                      │
+ │                                        TrackManager                  │
+ │                                        update() · get_tracks()       │
+ │                                               │                      │
+ │                              LockFreeQueue<PipelineOutput, 8>        │
+ └───────────────────────────────────────────────┼──────────────────────┘
                                                  │ try_push (non-blocking)
-                         ┌───────────────────────▼──────────────────────┐
-                         │  Dashboard Thread (SCHED_OTHER, 5 Hz)        │
+                         ┌───────────────────────▼───────────────────────┐
+                         │  Dashboard Thread (SCHED_OTHER, 5 Hz)         │
                          │  TerminalDashboard::update(output, cpi_rate)  │
                          │  ncurses: heatmap · detections · tracks · bars│
-                         └──────────────────────────────────────────────┘
+                         └───────────────────────────────────────────────┘
 ```
 
 ### Component map
