@@ -4,8 +4,8 @@
 #include <cmath>
 #include <vector>
 
-#include "dsp/range_doppler.hpp"
-#include "waveform/waveform_generator.hpp"
+#include "radar/range_doppler.hpp"
+#include "radar/waveform_generator.hpp"
 
 class RangeDopplerTest : public ::testing::Test {
  protected:

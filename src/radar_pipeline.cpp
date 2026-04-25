@@ -1,4 +1,4 @@
-#include "radar_pipeline.hpp"
+#include "radar/radar_pipeline.hpp"
 
 #include <cmath>
 #include <stdexcept>
@@ -72,6 +72,10 @@ std::optional<PipelineOutput> RadarPipeline::pop_output() {
   return output_queue_.try_pop();
 }
 
+JitterStats RadarPipeline::jitter_stats() const {
+  return rt_thread_ ? rt_thread_->jitter_stats() : JitterStats{};
+}
+
 void RadarPipeline::process_one_cpi() {
   const auto& cpi = cfg_.cpi;
 
@@ -84,6 +88,8 @@ void RadarPipeline::process_one_cpi() {
   perf_->begin("2_pulse_compress");
   std::vector<std::complex<float>> compressed(
       static_cast<std::size_t>(cpi.num_pulses) * cpi.range_bins);
+
+  CompressionMetrics compression_metrics{};  // taken from the first pulse
   for (uint32_t p = 0; p < cpi.num_pulses; ++p) {
     // Extract one pulse row
     std::vector<std::complex<float>> pulse(
@@ -91,6 +97,10 @@ void RadarPipeline::process_one_cpi() {
         raw.begin() + static_cast<std::ptrdiff_t>((p + 1) * cpi.range_bins));
 
     auto c = compressor_->compress(pulse);
+    if (p == 0) {
+      // Compute PSL/ISL once per CPI using the first compressed pulse
+      compression_metrics = PulseCompressor::compute_metrics(c);
+    }
     std::copy(c.begin(), c.end(),
               compressed.begin() + static_cast<std::ptrdiff_t>(p * cpi.range_bins));
   }
@@ -122,6 +132,8 @@ void RadarPipeline::process_one_cpi() {
   out.num_doppler = cpi.num_pulses;
   out.num_range = cpi.range_bins;
   out.cpi_index = cpi_count_.load();
+  out.psl_db = compression_metrics.psl_db;
+  out.isl_db = compression_metrics.isl_db;
 
   // Non-blocking push — drop if consumer is behind
   output_queue_.try_push(std::move(out));

@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Benchmark / profiling outputs
+output/*.csv
+output/*.json
+output/*.png
+output/*.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
+.venv/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Clang tooling
+compile_commands.json
+.clang-tidy-cache/
+
+# Docker leftovers
+.dockerignore

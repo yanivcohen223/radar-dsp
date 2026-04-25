@@ -4,8 +4,8 @@
 #include <complex>
 #include <vector>
 
-#include "dsp/pulse_compressor.hpp"
-#include "waveform/waveform_generator.hpp"
+#include "radar/pulse_compressor.hpp"
+#include "radar/waveform_generator.hpp"
 
 class PulseCompressionTest : public ::testing::Test {
  protected:

@@ -44,7 +44,7 @@ find_package(Curses REQUIRED)
 # GTest
 find_package(GTest QUIET)
 if(NOT GTest_FOUND)
-    find_library(GTEST_LIB     NAMES gtest     PATHS /usr/lib /usr/local/lib)
+    find_library(GTEST_LIB      NAMES gtest      PATHS /usr/lib /usr/local/lib)
     find_library(GTEST_MAIN_LIB NAMES gtest_main PATHS /usr/lib /usr/local/lib)
     find_path(GTEST_INCLUDE_DIR NAMES gtest/gtest.h
               PATHS /usr/include /usr/local/include)
@@ -61,25 +61,25 @@ if(NOT GTest_FOUND)
     endif()
 endif()
 
-# ─── Source files ────────────────────────────────────────────────────────────
+# ─── Source files (flat src/ layout) ─────────────────────────────────────────
 set(DSP_SOURCES
-    src/adc/adc_simulator.cpp
-    src/waveform/waveform_generator.cpp
-    src/dsp/pulse_compressor.cpp
-    src/dsp/range_doppler.cpp
-    src/dsp/cfar_detector.cpp
-    src/scheduler/rt_thread.cpp
-    src/pipeline/radar_pipeline.cpp
-    src/tracker/track_manager.cpp
-    src/metrics/perf_counter.cpp
-    src/dashboard/terminal_dashboard.cpp
+    src/adc_simulator.cpp
+    src/waveform_generator.cpp
+    src/pulse_compressor.cpp
+    src/range_doppler.cpp
+    src/cfar_detector.cpp
+    src/rt_thread.cpp
+    src/radar_pipeline.cpp
+    src/track_manager.cpp
+    src/perf_counter.cpp
+    src/terminal_dashboard.cpp
 )
 
 # ─── Main library (shared between binary and tests) ──────────────────────────
 add_library(radar_dsp_lib STATIC ${DSP_SOURCES})
 
 target_include_directories(radar_dsp_lib PUBLIC
-    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/include
     ${FFTW3_INCLUDE_DIR}
     ${CURSES_INCLUDE_DIR}
 )
@@ -107,7 +107,7 @@ if(GTest_FOUND)
 
     add_executable(run_tests ${TEST_SOURCES})
     target_include_directories(run_tests PRIVATE
-        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/include
         ${FFTW3_INCLUDE_DIR}
         ${GTEST_INCLUDE_DIR}
     )

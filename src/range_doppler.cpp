@@ -1,10 +1,10 @@
-#include "range_doppler.hpp"
+#include "radar/range_doppler.hpp"
 
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
 
-#include "waveform/waveform_generator.hpp"
+#include "radar/waveform_generator.hpp"
 
 RangeDopplerProcessor::RangeDopplerProcessor(uint32_t num_pulses, uint32_t range_bins,
                                              float prt_s)

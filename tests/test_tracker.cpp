@@ -2,8 +2,8 @@
 
 #include <vector>
 
-#include "dsp/cfar_detector.hpp"
-#include "tracker/track_manager.hpp"
+#include "radar/cfar_detector.hpp"
+#include "radar/track_manager.hpp"
 
 // Helper: make a detection at given range/velocity
 static Detection make_det(float range_m, float velocity_ms, float snr_db = 20.0f) {

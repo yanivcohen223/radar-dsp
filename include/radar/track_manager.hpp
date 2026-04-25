@@ -22,8 +22,8 @@
 #include <mutex>
 #include <vector>
 
-#include "target.hpp"
-#include "dsp/cfar_detector.hpp"
+#include "radar/target.hpp"
+#include "radar/cfar_detector.hpp"
 
 /**
  * @brief Track manager configuration.

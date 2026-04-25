@@ -1,4 +1,4 @@
-#include "cfar_detector.hpp"
+#include "radar/cfar_detector.hpp"
 
 #include <cmath>
 #include <numeric>

@@ -20,10 +20,10 @@
 #include <memory>
 #include <vector>
 
-#include "dsp/cfar_detector.hpp"
-#include "metrics/perf_counter.hpp"
-#include "pipeline/radar_pipeline.hpp"
-#include "tracker/target.hpp"
+#include "radar/cfar_detector.hpp"
+#include "radar/perf_counter.hpp"
+#include "radar/radar_pipeline.hpp"
+#include "radar/target.hpp"
 
 /**
  * @brief Manages the ncurses terminal UI for the radar pipeline.

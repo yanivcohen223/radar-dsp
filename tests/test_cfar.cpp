@@ -4,7 +4,7 @@
 #include <random>
 #include <vector>
 
-#include "dsp/cfar_detector.hpp"
+#include "radar/cfar_detector.hpp"
 
 class CfarTest : public ::testing::Test {
  protected:

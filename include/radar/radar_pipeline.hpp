@@ -18,15 +18,15 @@
 #include <memory>
 #include <vector>
 
-#include "adc/adc_simulator.hpp"
-#include "dsp/cfar_detector.hpp"
-#include "dsp/pulse_compressor.hpp"
-#include "dsp/range_doppler.hpp"
-#include "lock_free_queue.hpp"
-#include "metrics/perf_counter.hpp"
-#include "scheduler/rt_thread.hpp"
-#include "tracker/track_manager.hpp"
-#include "waveform/waveform_generator.hpp"
+#include "radar/adc_simulator.hpp"
+#include "radar/cfar_detector.hpp"
+#include "radar/lock_free_queue.hpp"
+#include "radar/perf_counter.hpp"
+#include "radar/pulse_compressor.hpp"
+#include "radar/range_doppler.hpp"
+#include "radar/rt_thread.hpp"
+#include "radar/track_manager.hpp"
+#include "radar/waveform_generator.hpp"
 
 /// @brief Published output of one processed CPI.
 struct PipelineOutput {
@@ -36,6 +36,8 @@ struct PipelineOutput {
   uint32_t num_doppler{0};
   uint32_t num_range{0};
   uint64_t cpi_index{0};
+  float psl_db{0.0f};                ///< Peak Sidelobe Level [dB] — from first compressed pulse
+  float isl_db{0.0f};                ///< Integrated Sidelobe Level [dB]
 };
 
 /// @brief Configuration knobs for the full pipeline.
@@ -70,6 +72,9 @@ class RadarPipeline {
 
   /// @brief Access the performance counter for CSV export.
   [[nodiscard]] const PerfCounter& perf() const { return *perf_; }
+
+  /// @brief RT thread jitter statistics.
+  [[nodiscard]] JitterStats jitter_stats() const;
 
   /// @brief CPI index counter.
   [[nodiscard]] uint64_t cpi_count() const noexcept { return cpi_count_.load(); }

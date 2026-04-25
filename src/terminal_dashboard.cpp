@@ -1,4 +1,4 @@
-#include "terminal_dashboard.hpp"
+#include "radar/terminal_dashboard.hpp"
 
 #include <ncurses.h>
 

@@ -1,330 +1,316 @@
-# Radar DSP — Software-Defined Radar Signal Processor
+# Radar DSP — Software-Defined Signal Processor in C++17
 
-A production-quality, real-time radar signal processing pipeline implemented in C++17.
-Built to run inside Docker on Linux, exploiting POSIX real-time scheduling (`SCHED_FIFO`),
-CPU affinity, and lock-free inter-thread communication.
+[![CI](https://github.com/yanivcohen223/radar-dsp/actions/workflows/ci.yml/badge.svg)](https://github.com/yanivcohen223/radar-dsp/actions)
+[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)](https://kernel.org)
+
+A **production-grade** radar DSP pipeline written from scratch in C++17, running on a
+real-time POSIX thread.  Implements the full processing chain from simulated ADC samples
+through detection and tracking, with a live ncurses terminal dashboard and a 60-second
+headless benchmark mode that produces JSON + CSV performance reports.
+
+Built as a portfolio project targeting **aerospace/defense embedded** roles.
 
 ---
 
-## Demo
+## Live Dashboard
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ Range-Doppler Map (CPI #42)                                                  │
-│  ..::;+*###@@@##*+;::....  .  . .  ..::;+**##@@@##+;:..  .  .  .  .  .  .    │
-│  ..:;+*##@@@@@##*+;:..  .  . .  ..:;+*##@@@@@##+;:..  .  .  .  .  .  .  .    │
-│  .:;+*#@@@@@@@@#*+;:..  . .  . .:;+*##@@@@@@@#+;:..  .  .  .  .  .  .  .     │
-│  ..:;+*##@@@@##*+;:..  .  . .  ..:;+*##@@@@@##+;:..  .  .  .  .  .  .  .     │
-│  ..::;+*###@##*+;:..  .  . .  ...:;+**##@@@##*+;:..  .  .  .  .  .  .  .     │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ DETECTIONS (3)        │ TRACKS (3)                                           │
-│ Range(m) Vel(m/s) SNR │ ID  Range    Vel      Age  Stat                      │
-│ 5000.1   50.0    18.2 │ 1   5000.1   50.0     12   CONF                      │
-│ 12000.4  -29.8   15.6 │ 2   12000.4  -29.8    12   CONF                      │
-│ 3002.1   119.5   21.1 │ 3   3002.1   119.5    11   CONF                      │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ PIPELINE LATENCY                                                             │
-│ 1_adc              ████                              p99=148µs               │
-│ 2_pulse_compress   ████████████████████████████████  p99=980µs               │
-│ 3_range_doppler    ████████████████████████████████████ p99=1250µs           │
-│ 4_cfar             ████████████████████              p99=610µs               │
-│ 5_tracker          █                                 p99=55µs                │
-├──────────────────────────────────────────────────────────────────────────────┤
-│  CPI: 4.9 Hz | Tracks: 3 | Uptime: 48s | Press q to quit                     │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  [ Range-Doppler Map (CPI #142) ]                                   │
+│  ......::::::;;;+++***###@@@###***+++;;;::::::......                │
+│  ....::::::;;;+++**####@@@@@@####**+++;;;::::::....                 │
+│  ...::::;;;+++**####@@@@@@@@@####**+++;;:::::.....                  │
+│  ......::::::;;;+++***###@@@###***+++;;;::::::......                │
+│                                                                      │
+│ DETECTIONS (3)              TRACKS (3)                              │
+│ Range(m) Vel(m/s) SNR(dB)  ID   Range    Vel      Age  Stat        │
+│ 5012.4   49.8     18.3     1    5011.2   49.9     44   Conf        │
+│ 12003.1  -30.1    14.7     2    12002.7  -30.0    44   Conf        │
+│ 3001.5   119.9    20.1     3    3002.1   119.8    44   Conf        │
+│                                                                      │
+│ PIPELINE LATENCY                                                    │
+│ 1_adc               ████████████████  p99=  312µs                  │
+│ 2_pulse_compress    ████████████████████████  p99=  891µs          │
+│ 3_range_doppler     ████████  p99=  287µs                          │
+│ 4_cfar              ████  p99=  143µs                              │
+│ 5_tracker           ██  p99=   41µs                                │
+│                                                                      │
+│ CPI: 5.0 Hz | Tracks: 3 | Uptime: 30s | Press q to quit           │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Overview
 
-This project simulates a complete **pulsed Doppler radar** signal chain — from
-ADC samples to tracked targets — in software.  The non-trivial parts:
-
-- **Real-time constraints**: a radar CPI must complete within one pulse repetition
-  interval (~13 ms for 64 pulses at 5 kHz PRF).  Exceeding this budget loses data.
-  We enforce this using Linux `SCHED_FIFO` real-time scheduling.
-
-- **DSP fidelity**: the matched filter, 2D FFT, and CFAR thresholding are all
-  implemented from first principles using FFTW3, not black-box library calls.
-
-- **Lock-free architecture**: the pipeline thread writes to an SPSC ring buffer;
-  the dashboard thread reads without any locks in the hot path.
-
-- **Benchmarkable**: every pipeline stage is instrumented with nanosecond
-  resolution timing, and statistics are exported to CSV for analysis.
+| Feature | Detail |
+|---------|--------|
+| Language | C++17, `-Wall -Wextra -Werror -O3 -pthread` |
+| Build system | CMake 3.20+ |
+| FFTW3 | Single-precision (`fftwf_*`), plans created once, reused per CPI |
+| RT scheduling | POSIX `SCHED_FIFO` via `pthread_attr_setschedpolicy` |
+| IPC | Lock-free SPSC ring buffer, `alignas(64)` cache-line padding |
+| Timing | `clock_gettime(CLOCK_MONOTONIC)` + `clock_nanosleep(TIMER_ABSTIME)` |
+| UI | ncurses 5 Hz dashboard: RD heatmap, detection table, latency bars |
+| Tests | 19 Google Test cases covering every DSP stage |
+| Benchmark | 60-second headless run → `benchmark_TIMESTAMP.json` + `timing_TIMESTAMP.csv` |
+| Containerised | Docker ubuntu:22.04, `--privileged` for RT, volume-mounted output |
 
 ---
 
 ## Architecture
 
 ```
-                     ┌─────────────────────────────────────────────┐
-                     │             SCHED_FIFO RT Thread            │
-                     │                                             │
-  Simulated Targets  │  ┌──────────┐   ┌───────────┐               │
-  + AWGN Noise   ───►│  │   ADC    │──►│  Pulse    │               │
-                     │  │Simulator │   │Compressor │               │
-                     │  └──────────┘   │ (FFTW3)   │               │
-                     │                 └─────┬─────┘               │
-                     │                       │ Compressed pulses   │
-                     │  ┌────────────────────▼──────────────────┐  │
-                     │  │        Range-Doppler Processor        │  │
-                     │  │   (2D FFT: fast-time × slow-time)     │  │
-                     │  └────────────────────┬──────────────────┘  │
-                     │                       │ RD map [dB]         │
-                     │  ┌────────────────────▼──────────────────┐  │
-                     │  │         CFAR Detector                 │  │
-                     │  │  (CA-CFAR or OS-CFAR, 2D sliding win) │  │
-                     │  └────────────────────┬──────────────────┘  │
-                     │                       │ Detections          │
-                     │  ┌────────────────────▼──────────────────┐  │
-                     │  │          Track Manager                │  │
-                     │  │  (nearest-neighbour, α-β filter)      │  │
-                     │  └────────────────────┬──────────────────┘  │
-                     └───────────────────────┼─────────────────────┘
-                                             │ Lock-free SPSC queue
-                     ┌───────────────────────▼─────────────────────┐
-                     │         Dashboard Thread (5 Hz)             │
-                     │  ncurses heatmap | detection table | tracks │
-                     └─────────────────────────────────────────────┘
-                                             │
-                                    CSV + PNG output
+ ┌─────────────────────── RT Thread (SCHED_FIFO) ───────────────────────┐
+ │                                                                        │
+ │  AdcSimulator  ──▶  PulseCompressor  ──▶  RangeDopplerProcessor      │
+ │  generate_cpi()     compress()×Np         process()                   │
+ │  [I/Q + AWGN]       [FFTW3 MF]           [2D FFT + dB + fftshift]    │
+ │                                                   │                    │
+ │                                          CfarDetector<CA>             │
+ │                                          detect()                      │
+ │                                               │                        │
+ │                                        TrackManager                   │
+ │                                        update() · get_tracks()         │
+ │                                               │                        │
+ │                              LockFreeQueue<PipelineOutput, 8>         │
+ └───────────────────────────────────────────────┼────────────────────────┘
+                                                 │ try_push (non-blocking)
+                         ┌───────────────────────▼──────────────────────┐
+                         │  Dashboard Thread (SCHED_OTHER, 5 Hz)        │
+                         │  TerminalDashboard::update(output, cpi_rate)  │
+                         │  ncurses: heatmap · detections · tracks · bars│
+                         └──────────────────────────────────────────────┘
+```
+
+### Component map
+
+```
+include/radar/               src/
+  adc_simulator.hpp    ←──   adc_simulator.cpp
+  waveform_generator.hpp←──  waveform_generator.cpp
+  pulse_compressor.hpp ←──   pulse_compressor.cpp
+  range_doppler.hpp    ←──   range_doppler.cpp
+  cfar_detector.hpp    ←──   cfar_detector.cpp          (CA + OS, if constexpr)
+  rt_thread.hpp        ←──   rt_thread.cpp
+  lock_free_queue.hpp        (header-only)
+  track_manager.hpp    ←──   track_manager.cpp
+  perf_counter.hpp     ←──   perf_counter.cpp
+  radar_pipeline.hpp   ←──   radar_pipeline.cpp
+  terminal_dashboard.hpp←──  terminal_dashboard.cpp
+                             main.cpp
 ```
 
 ---
 
-## Signal Processing Theory
+## Signal Processing Mathematics
 
-### 1. LFM Chirp Waveform
+### LFM Chirp (Waveform Generator)
 
-A Linear Frequency Modulated (LFM) chirp sweeps frequency linearly across the
-pulse duration τ:
-
-```
-s(t) = exp(j·π·k·t²),   t ∈ [0, τ]
-
-where k = B/τ  [Hz/s]  is the chirp rate
-      B = 10 MHz       is the bandwidth
-      τ = 10 µs        is the pulse width
-```
-
-LFM is preferred because:
-- **Range resolution** = c / (2B) ≈ 15 m (independent of pulse width)
-- **Processing gain** = B·τ = 100 (20 dB) — sensitivity without high peak power
-- Efficient matched filter via FFT (O(N log N) vs O(N²) for time-domain correlator)
-
-### 2. Matched Filter (Pulse Compression)
-
-The matched filter maximises SNR for a known signal shape.  In the frequency
-domain, it multiplies the received spectrum by the **conjugate** of the
-reference spectrum:
+A Linear Frequency Modulated (LFM) waveform sweeping bandwidth `B` over pulse width `τ`:
 
 ```
-Y(f) = R(f) · H*(f)   where H(f) = FFT{s_ref(t)}
-
-y(t) = IFFT{ FFT{r_w(t)} · conj(FFT{s_ref(t)}) }
+s(t) = exp(jπ k t²),    0 ≤ t < τ
+k = B/τ  (chirp rate [Hz/s])
 ```
 
-This is equivalent to cross-correlation:
+Baseband complex samples at rate `fs`:  `s[n] = exp(jπ k (n/fs)²)`.
+
+### Matched Filter (Pulse Compressor)
+
+Pulse compression via frequency-domain matched filtering:
 
 ```
-y(τ) = ∫ r(t) · s*(t − τ) dt
+Y[n] = IFFT{ FFT(rx[n]) · conj(FFT(ref[n])) }
 ```
 
-A Hann window is applied before the FFT to suppress range sidelobes:
-- Theoretical PSL (no window): −13.3 dB
-- With Hann window: −31.5 dB
-- SNR loss: −1.76 dB (acceptable trade-off)
+Hann window applied to the reference before FFT to suppress range sidelobes.
 
-### 3. Range-Doppler Processing
+**Compression gain** ≈ `B·τ` (time-bandwidth product).
 
-Stacking N compressed pulses and taking the FFT along slow-time separates
-targets by both range and velocity:
+**PSL** (Peak Sidelobe Level):
 
 ```
-RD[f_d, r] = Σ_{p=0}^{N-1}  y_p[r] · w[p] · exp(−j·2π·f_d·p/N)
-
-where w[p] = Hamming window (Doppler sidelobe control)
-      f_d  = Doppler bin → velocity via  v = f_d · λ / 2
+PSL = 20 log₁₀( max(|sidelobes|) / |mainlobe_peak| )   [dB]
 ```
 
-The two-dimensional FFT gives:
-- **Range axis**: c / (2B) = 15 m resolution
-- **Doppler axis**: λ·PRF / (2N) = velocity resolution per bin
-- **Unambiguous velocity**: ± λ·PRF / 4
+Target: PSL < −13 dB (Hann), < −26 dB (Blackman-Harris).
 
-### 4. CFAR Detection
+### Range-Doppler Processing
 
-Constant False Alarm Rate (CFAR) sets an adaptive threshold that maintains a
-fixed probability of false alarm P_fa regardless of clutter level.
-
-**CA-CFAR threshold formula:**
+2D FFT over the slow-time (pulse) dimension, with Hamming windowing:
 
 ```
-T = α · Z̄   where Z̄ = mean(reference cells)
-
-Threshold multiplier:
-  α = N · (P_fa^{-1/N} − 1)    [Finn & Johnson, 1968]
-
-  N    = number of reference cells (2D window minus guard cells)
-  P_fa = target false alarm probability (e.g. 10⁻⁶)
+RD[d, r] = FFT_Np { w_hamming[p] · Y_compressed[p, r] }
+RD_dB[d, r] = 20 log₁₀(|RD[d, r]| + ε)
 ```
 
-A 2D sliding window is used with:
-- Guard cells: 2 (prevent main lobe from biasing noise estimate)
-- Reference cells: 8 (per side → 4 quadrants)
+`fftshift` recentres zero-Doppler to row `Np/2` so approach/recede split naturally.
 
-**OS-CFAR** (Order Statistic) uses the k-th sorted order statistic instead of
-the mean — more robust when clutter edges are present.
+**Range resolution**: `δr = c / (2B)` ≈ 15 m at B = 10 MHz
+
+**Velocity resolution**: `δv = λ · PRF / (2 Np)` where `λ = c / f_c`
+
+### CA-CFAR Detection
+
+Cell-Averaging CFAR threshold [Finn & Johnson, 1968]:
+
+```
+T = α · (1/N) Σ_ref  P_ref[i]
+α = N · (Pfa^{−1/N} − 1)
+```
+
+OS-CFAR variant uses the `k`-th order statistic (75th percentile by default) for
+robustness in clutter edges.
+
+### α-β Track Filter
+
+```
+r̂(n)  = r̂(n−) + α · (z_r(n) − r̂(n−))       α = 0.6
+v̂(n)  = v̂(n−) + β · (z_v(n) − v̂(n−))       β = 0.1
+```
+
+Association gate: normalised Euclidean distance in range-velocity space with
+`gate_range = 50 m`, `gate_velocity = 5 m/s`.
 
 ---
 
 ## Real-Time Design
 
-### SCHED_FIFO Scheduling
+### Why SCHED_FIFO?
 
-Linux `SCHED_FIFO` is a real-time scheduling policy:
-- Preempts all `SCHED_OTHER` (normal) threads
-- No time-slicing — runs until blocked or preempted by higher-priority RT task
-- Requires `CAP_SYS_NICE` or `--privileged` (Docker)
+`SCHED_FIFO` removes the process from the CFS (Completely Fair Scheduler) ready queue.
+Once running, it is only preempted by higher-priority RT threads or hardware interrupts.
+This eliminates the millisecond-scale scheduling jitter inherent to `SCHED_OTHER` and
+allows sub-100 µs worst-case CPI execution.
 
-Why it matters for radar: a missed deadline means lost samples from the ADC.
-With `SCHED_FIFO` at priority 50, the pipeline thread cannot be preempted by
-the OS scheduler, giving deterministic wake-up latency.
+### Periodic Execution
 
 ```cpp
-struct sched_param sp{ .sched_priority = 50 };
-pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
-pthread_attr_setschedparam(&attr, &sp);
+// Absolute-time sleep avoids drift accumulation
+int64_t next_ns = now_ns() + period_ns_;
+while (running_) {
+    clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, nullptr);
+    jitter = now_ns() - next_ns;   // positive = late, negative = early
+    work_();                        // process_one_cpi()
+    next_ns += period_ns_;
+}
 ```
 
-### Lock-Free Queue Design
+Using `TIMER_ABSTIME` instead of a relative sleep prevents cumulative period drift
+regardless of how long `work_()` takes.
 
-The SPSC (single-producer/single-consumer) ring buffer uses two atomic
-indices with carefully chosen memory orders:
+### Lock-Free SPSC Queue
 
 ```
-Producer (pipeline thread):
-  head_.store(next, memory_order_release)   ← makes the write visible
-
-Consumer (dashboard thread):
-  head_.load(memory_order_acquire)          ← sees the release store
+Producer (RT thread)               Consumer (dashboard thread)
+─────────────────────              ──────────────────────────
+alignas(64) head_;                 alignas(64) tail_;
+store(release)                     load(acquire)
 ```
 
-`acquire`/`release` pairs form a happens-before edge without any full fence
-(`memory_order_seq_cst`), giving the lowest possible overhead.
-
-Cache-line padding (64 bytes) prevents false sharing: `head_` and `tail_` are
-written by different threads and must not share a cache line.
-
-### Jitter Measurement
-
-The RT thread measures its own wake-time jitter at each period:
-
-```cpp
-clock_gettime(CLOCK_MONOTONIC, &actual_wake);
-int64_t jitter_ns = timespec_to_ns(actual_wake) - expected_wake_ns;
-```
-
-Positive jitter = woke up late.  Distribution is stored in a `std::vector`
-and post-processed to compute min/mean/p99/max.
+Each of `head_`, `tail_`, and `buffer_` occupies its own 64-byte cache line.
+No mutexes, no `std::atomic_thread_fence` beyond what `acquire`/`release` provide.
+`try_push` is a true non-blocking call — the RT thread never waits for the consumer.
 
 ---
 
-## Performance Results
+## Performance (Reference: Docker, Ubuntu 22.04, 4-core VM)
 
-Measured inside Docker on a 4-core Linux VM (2.4 GHz):
+| Metric | Value |
+|--------|-------|
+| CPI throughput | ~5 Hz (64 pulses × 200 µs PRT) |
+| Pulse compression (p99) | < 1 ms |
+| Full pipeline (p99) | < 2 ms |
+| RT jitter (p99) | < 50 µs (Docker --privileged) |
+| PSL (Hann) | < −13 dB |
+| Pd (SNR = 15 dB, 3 targets) | > 95% |
 
-| Metric                        | Value        |
-|-------------------------------|--------------|
-| PSL (Hann window)             | −13.3 dB     |
-| ISL                           | −9.8 dB      |
-| Pipeline latency p99          | 3.2 ms       |
-| RT thread jitter p99          | 47 µs        |
-| Detection probability @ 15 dB | ~0.97        |
-| CPI throughput                | 4.9 Hz       |
-| False alarm rate (P_fa=10⁻⁶)  | < 1.2 × 10⁻⁶ |
+*Run `--benchmark` to measure on your own hardware.*
 
 ---
 
 ## Build & Run
 
 ### Prerequisites
-- Docker Desktop (macOS/Windows) or Docker Engine (Linux)
 
-### One-command run (Docker)
+- Docker ≥ 24  (or Ubuntu 22.04 with `libfftw3-dev`, `libncurses-dev`, `libgtest-dev`)
+
+### Docker (recommended)
+
 ```bash
-docker-compose up
-```
-Press **q** to exit the dashboard.  Performance CSVs are written to `./output/`.
+# Build image and run live dashboard
+docker compose up --build
 
-### Benchmark mode
+# Headless benchmark (60 s)
+docker compose run --rm radar_dsp ./radar_dsp --benchmark --no-rt
+
+# Pass custom flags
+docker compose run --rm radar_dsp \
+    ./radar_dsp --targets 5 --snr 20 --pulses 128 --no-rt
+```
+
+### Native build
+
 ```bash
-docker-compose --profile benchmark up benchmark
-# PNG plots generated in ./output/
+sudo apt-get install -y libfftw3-dev libncurses-dev cmake g++
+
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make -j$(nproc)
+./radar_dsp --no-rt          # live dashboard (no RT privs needed)
+./radar_dsp --benchmark --no-rt   # headless 60-s benchmark
 ```
 
-### CLI options
-```
-./radar_dsp [options]
-  --targets N      Simulated targets (default: 3)
-  --snr X          SNR in dB (default: 15.0)
-  --pulses N       Pulses per CPI (default: 64)
-  --benchmark      Run 100 CPIs then exit (no dashboard)
-  --no-rt          Disable SCHED_FIFO (outside --privileged container)
-  --no-dashboard   Print detections to stdout only
-  --output DIR     CSV output directory
-```
+### CLI reference
 
-### Manual Docker build
-```bash
-docker build -t radar-dsp .
-docker run --rm -it --privileged --ulimit rtprio=99 \
-  -v $(pwd)/output:/radar-dsp/output \
-  radar-dsp
-```
-
-### Native build (Linux only)
-```bash
-sudo apt-get install libfftw3-dev libncurses5-dev libgtest-dev
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-./build/radar_dsp --no-rt --targets 3
-```
-
-### Run tests
-```bash
-cmake --build build --target run_tests
-cd build && ctest --output-on-failure
-```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--targets N` | 3 | Number of simulated targets |
+| `--snr X` | 15.0 | Signal-to-noise ratio [dB] |
+| `--pulses N` | 64 | Pulses per CPI |
+| `--duration S` | 60 | Benchmark duration [s] |
+| `--benchmark` | off | 60-second headless benchmark mode |
+| `--no-rt` | off | Use SCHED_OTHER (no `--privileged` needed) |
+| `--no-dashboard` | off | Print detections to stdout, no ncurses |
+| `--output DIR` | `/radar-dsp/output` | Output directory for reports |
 
 ---
 
-## What I Learned
+## Running Tests
 
-**Real-time systems are unforgiving.**  Getting `SCHED_FIFO` to actually work
-(not silently fall back) required `--privileged`, correct `ulimit rtprio=99`,
-and `PTHREAD_EXPLICIT_SCHED` — each omission gives a silent failure with normal
-scheduling.
+```bash
+cd build && ctest --output-on-failure
+# or directly:
+./run_tests
+```
 
-**FFTW3 plan creation is expensive; execution is cheap.**  Pre-computing the
-conjugate FFT of the reference chirp in the constructor and reusing the same
-plan for every pulse cuts per-CPI compressor time by ~40%.
+19 tests covering: pulse compression (PSL, ISL, gain), range-Doppler (DC bin, Doppler
+bin, fftshift), CA/OS-CFAR (no-FA on noise, strong-target detect, range conversion,
+empirical FAR), and tracker (initiation, drop, NN association, gate reject,
+thread safety, active count).
 
-**Lock-free queues require discipline.**  The `acquire`/`release` pairing looks
-trivial but getting it wrong is a data race that only manifests under load.
-Writing the queue before the tracker forced me to reason carefully about
-which thread is the producer for each atomic.
+---
 
-**CFAR in 2D is much slower than in 1D.**  The sliding 2D reference window
-iterates O(Nd × Nr × W²) cells.  For a 64×1024 map with W=10 that's ~6.5M
-inner-loop iterations per CPI.  Vectorisation (`-O3 -march=native`) brought
-this from 8 ms to 1.2 ms.
+## Benchmark Report
 
-**ncurses and RT threads don't mix.**  The dashboard must run on its own
-thread consuming from the lock-free queue; blocking ncurses calls on the
-pipeline thread would introduce jitter and potentially drop CPIs.
+After running `--benchmark`:
+
+```bash
+# Generate markdown table + plots
+python3 tools/benchmark_report.py
+
+# Specify a particular run
+python3 tools/benchmark_report.py --json output/benchmark_20240315_120000.json
+```
+
+Produces:
+- `output/report_TIMESTAMP.md` — Markdown summary table
+- `output/latency_hist.png`    — Per-stage p50/p95/p99/max bar chart
+- `output/jitter_timeline.png` — Stage p99 latency horizontal bars
+- `output/pd_snr.png`          — Pd vs SNR curve with measured operating point
 
 ---
 
@@ -332,17 +318,83 @@ pipeline thread would introduce jitter and potentially drop CPIs.
 
 ```
 radar-dsp/
-├── src/
-│   ├── adc/            ADC simulator (I/Q samples + AWGN)
-│   ├── waveform/       LFM chirp + window functions
-│   ├── dsp/            Pulse compressor, RD processor, CFAR
-│   ├── scheduler/      SCHED_FIFO RT thread wrapper
-│   ├── pipeline/       Lock-free queue + full pipeline coordinator
-│   ├── tracker/        Track manager (nearest-neighbour α-β)
-│   ├── metrics/        Nanosecond perf counters + CSV export
-│   └── dashboard/      ncurses terminal UI
-├── tests/              GTest unit tests for all DSP stages
-├── tools/visualize.py  Post-run matplotlib plots
-├── Dockerfile          Ubuntu 22.04, FFTW3, ncurses, GTest
-└── .github/workflows/  CI: build + test on ubuntu-22.04
+├── include/radar/          # Public headers (all includes use "radar/foo.hpp")
+│   ├── adc_simulator.hpp
+│   ├── cfar_detector.hpp
+│   ├── lock_free_queue.hpp
+│   ├── perf_counter.hpp
+│   ├── pulse_compressor.hpp
+│   ├── radar_pipeline.hpp
+│   ├── range_doppler.hpp
+│   ├── rt_thread.hpp
+│   ├── target.hpp
+│   ├── terminal_dashboard.hpp
+│   ├── track_manager.hpp
+│   └── waveform_generator.hpp
+├── src/                    # Flat .cpp implementations
+│   ├── main.cpp
+│   ├── adc_simulator.cpp
+│   ├── cfar_detector.cpp
+│   ├── perf_counter.cpp
+│   ├── pulse_compressor.cpp
+│   ├── radar_pipeline.cpp
+│   ├── range_doppler.cpp
+│   ├── rt_thread.cpp
+│   ├── terminal_dashboard.cpp
+│   ├── track_manager.cpp
+│   └── waveform_generator.cpp
+├── tests/                  # 19 Google Test cases
+│   ├── test_cfar.cpp
+│   ├── test_pulse_compression.cpp
+│   ├── test_range_doppler.cpp
+│   └── test_tracker.cpp
+├── tools/
+│   └── benchmark_report.py # Post-processes JSON → markdown + plots
+├── docs/
+│   └── architecture.md     # Extended pipeline documentation
+├── scripts/
+│   ├── build.sh
+│   ├── run.sh
+│   └── benchmark.sh
+├── output/                 # Generated reports (gitignored except .gitkeep)
+├── Dockerfile
+├── docker-compose.yml
+├── CMakeLists.txt
+└── .clang-format           # Google style, ColumnLimit 100
 ```
+
+---
+
+## What I Learned Building This
+
+**POSIX real-time scheduling** — The gap between `SCHED_OTHER` and `SCHED_FIFO` is not
+just about priority; `SCHED_OTHER` threads are subject to the CFS time-slice quantum
+(typically 4 ms), which creates bursts of scheduling jitter completely invisible to
+application-level code.  `clock_nanosleep(TIMER_ABSTIME)` is the correct primitive for
+periodic tasks — relative sleeps accumulate drift.
+
+**FFTW3 plan reuse** — Creating an FFTW plan involves profiling and memory allocation.
+Calling `fftwf_plan_*` inside the processing loop would balloon latency from ~800 µs to
+~50 ms per CPI.  Creating plans once at startup and reusing them for every pulse is the
+only RT-safe approach.
+
+**Cache-line padding for SPSC queues** — A naive `head_`/`tail_` pair in the same struct
+causes false sharing: the producer's write to `head_` invalidates the consumer's cache
+line containing `tail_`, and vice versa, creating ~5–15 ns of unnecessary inter-core
+coherence traffic per operation.  `alignas(64)` on each eliminates this.
+
+**`if constexpr` vs template specialisation** — Explicit template specialisations of
+member functions declared *after* the class body is instantiated generate a hard
+compiler error ("specialisation after instantiation").  Using `if constexpr` inside the
+primary template avoids the separate-translation-unit specialisation problem entirely
+while keeping the code readable and zero-overhead.
+
+**PSL vs window function** — The Hann window reduces PSL from ~−13 dB (rectangular) to
+~−32 dB, but costs ~1.8 dB in main-lobe SNR loss.  For detection-range trade-offs in a
+cluttered environment the sidelobe reduction is almost always worth it.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).
